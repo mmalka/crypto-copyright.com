@@ -9,6 +9,7 @@ All information present on this page are subject to change anytime, once they wi
 - A service that allow you to retrieve your past copyrights/patents proof of existence anytime on your personal account.
 - A service that allow you to print a signed certificate to show in case you are going to a court.
 - A service that needs only 1 confirmation before approving your copyright/patent proof of existence case.
+ - It will then process request as soon as possible regarding our current cash-fund, could wait up to 6 transactions to process in worst cases, but request is considered paid at 1 confirmation.
 - A service that do the checksum hashing on the client side to protect your documents.
 - A service that also provide an on-demand double-authentication registration. (Will submit another proof of existence for a raw ASCII text identifying the owner, document name, document content to easily prove the owner of a file)
 
@@ -18,7 +19,7 @@ To-do to be able to fulfil those required features:
   - Auto-refund transactions that are not exact amount. Allow payments with 0.0006 btc difference and authorize any higher price. If it's higher than 0.0001 btc fee (minus the fee).
   - If transaction accepted/confirmed:
      - Will immediately create the proof of existence.
-	   - Will wait only one confirm is our cash-fund is big enough to fullfil the transaction.
+	   - Will wait only one confirm if our cash-fund is funded enough to fullfil the transaction.
 	     - In case our cash-fund is not enough, will retry every new block to process it as we may receive others transactions. The maximum amount of block to wait will be 6 confirmations anyway.
 	   - Will create a transaction using an OP_RETURN meta-data.
 	     - The identifier for our transactions will be the following 12 bytes ASCII "CryptoProof-", translated "43 72 79 70 74 6f 50 72 6f 6f 66 2d" in hexadecimal.
