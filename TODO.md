@@ -18,13 +18,15 @@ To-do to be able to fulfil those required features:
   - Auto-refund transactions that are not exact amount. Allow payments with 0.0006 btc difference and authorize any higher price. If it's higher than 0.0001 btc fee (minus the fee).
   - If transaction accepted/confirmed:
      - Will immediately create the proof of existence.
+	   - Will wait only one confirm is our cash-fund is big enough to fullfil the transaction.
+	     - In case our cash-fund is not enough, will retry every new block to process it as we may receive others transactions. The maximum amount of block to wait will be 6 confirmations anyway.
 	   - Will create a transaction using an OP_RETURN meta-data.
 	     - The identifier for our transactions will be the following 12 bytes ASCII "CryptoProof-", translated "43 72 79 70 74 6f 50 72 6f 6f 66 2d" in hexadecimal.
 	     - The hash of our transactions will be using SHA-3/224 algorithm. It will use 224 bits/28 bytes.
 	     - The identifier + the hash will be using a total of 40 bytes length, using 100% of the available space for this meta-data field.
 	 - Will create an entry in our database about this proof of existence and all the information related to it for PDF generation.
-	 - Will send: ((TOTAL-0.0001*2)/2) BTC to Partner#1.
-	 - Will send: ((TOTAL-0.0001*2)/2) BTC to Partner#2.
+	 - Will send: ((TOTAL-0.0001)/2) BTC to Partner#1 daily/weekly/monthly possible.
+	 - Will send: ((TOTAL-0.0001)/2) BTC to Partner#2 in the same transaction as for Partner#1, daily/weekly/monthly possible..
   - Auto-refund transactions not linked to any ongoing task if it's higher than 0.0001 BTC fee (minus the fee).
 - Make a cronjob script that will prune unpaid registration.
   - 6 hours to receive the payment.
