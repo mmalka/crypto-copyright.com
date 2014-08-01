@@ -15,7 +15,7 @@ All information present on this page are subject to change anytime, once they wi
 To-do to be able to fulfil those required features:
 - Install a bitcoind local wallet.
 - Make a cronjob script that will check the new transactions ids.
-  - Auto-refund transactions that are not exact amount. Allow +/- 0.0006 difference. If it's higher than 0.0001 BTC fee (minus the fee).
+  - Auto-refund transactions that are not exact amount. Allow payments with 0.0006 btc difference and authorize any higher price. If it's higher than 0.0001 btc fee (minus the fee).
   - If transaction accepted/confirmed:
      - Will immediately create the proof of existence.
 	   - Will create a transaction using an OP_RETURN meta-data.
