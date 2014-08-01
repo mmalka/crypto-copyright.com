@@ -18,6 +18,10 @@ Todo to be able to fullfil those required features:
   - Auto-refund transactions that are not exact amount. Allow a +/- 0.0006 difference. If it's higher than 0.0001 btc fee (minus the fee).
   - If transaction accepted/confirmed:
      - Will immediatly create the proof of existence.
+	   - Will create a transaction using an OP_RETURN meta-data.
+	     - The identifier for our transactions will be the following 12 bytes Ascii "CryptoProof-", translated "43 72 79 70 74 6f 50 72 6f 6f 66 2d" in hexadecimal.
+	     - The hash of our transactions will be using SHA-3/224 algorithm. It will use 224 bits/28 bytes.
+	     - The identifier + the hash will be a using a total of 40 bytes lengh, using 100% of the available space for this meta-data field.
 	 - Will create an entry in our database about this proof of existence and all the informations related to it for PDF generation.
 	 - Will send : ((TOTAL-0.0001*2)/2) BTC to Partner#1.
 	 - Will send : ((TOTAL-0.0001*2)/2) BTC to Partner#2.
