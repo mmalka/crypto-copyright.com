@@ -26,6 +26,8 @@ Todo to be able to fullfil those required features:
 	 - Will send : ((TOTAL-0.0001*2)/2) BTC to Partner#1.
 	 - Will send : ((TOTAL-0.0001*2)/2) BTC to Partner#2.
   - Auto-refund transactions not linked to any ongoing task if it's higher than 0.0001 btc fee (minus the fee).
+- Make a cronjob script that will prune unpaid registration.
+  - 6 hours to receive the payment.
 - Create a graphical chart for the logo/website.
 - Code the backend with user connexion supporting google dual authentification and facebook connect.
   - Should be able to connect using Facebook connect.
