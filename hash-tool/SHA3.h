@@ -3,12 +3,6 @@
 
 #include "HashFunction.h"
 
-/// SHA-3 winning hash algorithm Keccak
-///
-/// @author: Christopher Bentivenga
-/// @author: Frederick Christie
-/// @author: Michael Kitson
-
 typedef unsigned long long keccakLane_t;
 
 class SHA3 : public HashFunction{
