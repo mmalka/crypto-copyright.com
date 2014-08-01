@@ -1,5 +1,14 @@
 #ifndef HASH_FUNCTION_H
-#define HASH_FUNCTION_
+#define HASH_FUNCTION_H
+
+/// Specification for a generic hash function to which our implemtation must
+/// conform. Adapted from HashFunction.java provided by Professor Alan Kaminsky
+/// at: http://www.cs.rit.edu/~ark/482/ugradproject/java2html.php?file=3
+///
+/// @author: Christopher Bentivenga
+/// @author: Frederick Christie
+/// @author: Michael Kitson
+/// @contributor: Alan Kaminsky
 
 class HashFunction{
  public:
