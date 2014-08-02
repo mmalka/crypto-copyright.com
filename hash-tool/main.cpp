@@ -67,6 +67,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			if (lParam == (LPARAM)button && wParam == BN_CLICKED)
 			{
 				// The button was clicked, this is your proof.
+				SendMessage(editHwnd3, WM_SETTEXT, NULL, (LPARAM)"");
 				TCHAR buff[1024];
 				GetWindowText(editHwnd, buff, 1024);
 
@@ -147,7 +148,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     wc.cbClsExtra    = 0;
     wc.cbWndExtra    = 0;
     wc.hInstance     = hInstance;
-    wc.hIcon         = NULL;
+    wc.hIcon         = LoadIcon(hInstance, MAKEINTRESOURCE(100));
     wc.hCursor       = LoadCursor(hInstance, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
     wc.lpszMenuName  = NULL;
@@ -164,9 +165,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // This function creates the first window. It uses the window class registered in the first part, and takes a title,
 	// style and position/size parameters. For more information about style-specific definitions, refer to the MSDN where
 	// extended documentation is available.
-    hwnd = CreateWindowExA(WS_EX_CLIENTEDGE, "Crypto-Copyright", "SHA-3/224 Hasher ",
+    hwnd = CreateWindowExA(WS_EX_CLIENTEDGE, "Crypto-Copyright", "Crypto-Copyright.com SHA-3/224 Hasher ",
         (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX),
-        CW_USEDEFAULT, CW_USEDEFAULT, 640, 300, NULL, NULL, hInstance, NULL);
+        CW_USEDEFAULT, CW_USEDEFAULT, 630, 270, NULL, NULL, hInstance, NULL);
+
+    HBRUSH brush = CreateSolidBrush(RGB(240, 240, 240));
+    SetClassLongPtr(hwnd, GCLP_HBRBACKGROUND, (LONG)brush);
 
 	// This function creates the button that is displayed on the window. It takes almost the same parameter types as the function
 	// that created the window. A thing to note here though, is BS_DEFPUSHBUTTON, and BUTTON as window class, which is an existing one.

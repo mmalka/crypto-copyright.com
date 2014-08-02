@@ -1,0 +1,29 @@
+#define VOS_NT_WINDOWS32    0x00040004L
+
+100 ICON MOVEABLE PURE LOADONCALL DISCARDABLE "E:\\Desktop\\Sha3-Sum\\GUI_Test\\icon.ico"
+
+
+1 VERSIONINFO
+FILEVERSION 1,00,0,0
+PRODUCTVERSION 1,00,0,0
+
+{
+    BLOCK "StringFileInfo"
+    {
+        BLOCK "04090000"
+        {
+		VALUE "CompanyName", "Crypto-Copyright"
+		VALUE "FileDescription", "Crypto-Copyright.com SHA-3/224 Hash Tool"
+		VALUE "FileVersion", "1.0"
+		VALUE "LegalCopyright", "Copyright © 2014"
+		VALUE "ProductName", "Crypto-Copyright.com SHA-3/224 Hash Tool"
+		VALUE "ProductVersion", "1.0"
+        }
+    }
+    BLOCK "VarFileInfo"
+    {
+        VALUE "Translation", 0x409, 1200
+    }
+}
+
+
