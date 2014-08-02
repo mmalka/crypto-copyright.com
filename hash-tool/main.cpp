@@ -83,6 +83,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 std::cout << hexDigest << std::endl;
                 SendMessage(editHwnd2, WM_SETTEXT, NULL, (LPARAM)hexDigest);
 			}
+
 			else if (lParam == (LPARAM)button2 && wParam == BN_CLICKED)
 			{
 				// The button was clicked, this is your proof.
@@ -107,6 +108,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                             imalloc->Release ( );
                         }
                     }
+                    else {
+                            SendMessage(editHwnd2, WM_SETTEXT, NULL, (LPARAM)"");
+                            break;
+                    }
 
                     char *filename = path;
                     int digestSize = 224;
@@ -126,11 +131,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 		break;
         default:
-			// When no message type is handled in your application, return the default window procedure. In this case the message
-			// will be handled elsewhere or not handled at all.
-            return DefWindowProc(hwnd, msg, wParam, lParam);
+        // When no message type is handled in your application, return the default window procedure. In this case the message
+        // will be handled elsewhere or not handled at all.
+        return DefWindowProc(hwnd, msg, wParam, lParam);
     }
-
     return 0;
 }
 
@@ -138,6 +142,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 // at first.
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
+    INITCOMMONCONTROLSEX icc;
+
+    // Initialise common controls.
+    icc.dwSize = sizeof(icc);
+    icc.dwICC = ICC_WIN95_CLASSES;
+    InitCommonControlsEx(&icc);
+
 	// In order to be able to create a window you need to have a window class available. A window class can be created for your
 	// application by registering one. The following struct declaration and fill provides details for a new window class.
     WNDCLASSEX wc;
