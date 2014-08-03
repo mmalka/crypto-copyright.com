@@ -1,11 +1,7 @@
 #include <windows.h>
 #include <Shlobj.h>
-#include <Shobjidl.h>
-#include <Commdlg.h>
-#include <commctrl.h>
+#include <time.h>
 
-#include <cstdlib>
-#include <cstring>
 #include <fstream>
 #include <iostream>
 #include "SHA3.h"
@@ -18,6 +14,8 @@ char szFile[200] ;
 HFONT font=CreateFont(-17,0,0,0,FW_NORMAL,0,0,0,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,FF_DONTCARE,"Calibri");
 
 char *hexDigestForFile( const char *filename, const int digestBytes ){
+    clock_t tic1, toc1;
+
     std::ifstream file;
     char buffer[FILE_BUFFER_BYTES];
 
@@ -29,16 +27,27 @@ char *hexDigestForFile( const char *filename, const int digestBytes ){
 	if ( ( f = fopen ( filename, "rb" ) ) == NULL )
 		printf("Error opening file\n");
 
+    tic1 = clock();
 	while ( ( n = fread ( buffer, 1 , sizeof(buffer), f ) ) > 0 )
-	for( int i = 0; i < n; i++ )
-            hash->hash( (int) ((unsigned char) buffer[i]) );
+    {
+        for( int i = 0; i < n; i++ )
+        {
+                hash->hash( (int) ((unsigned char) buffer[i]) );
+        }
+
+    }
+
 	fclose(f);
+
+    toc1 = clock();
+    printf("Hashing function Took: %f seconds\n", (double)(toc1 - tic1) / CLOCKS_PER_SEC);
 
     unsigned char *digest = new unsigned char[digestBytes];
     char *hexDigest = new char[2*digestBytes + 1];
     char *hexLookup = (char*)"0123456789abcdef";
     hexDigest[2*digestBytes] = '\0';
     hash->digest( digest );
+
     for( int byte = 0; byte < digestBytes; byte++ ){
         hexDigest[2*byte]   = hexLookup[digest[byte] >> 4];
         hexDigest[(2*byte)+1] = hexLookup[digest[byte] & 15];
