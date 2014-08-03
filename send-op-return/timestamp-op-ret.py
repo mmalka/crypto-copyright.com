@@ -98,4 +98,5 @@ for digest in digests:
             if silent_mode == 0: print("Transaction Broadcast -> Generated TxId | " + generated_tx)
             if silent_mode == 0: print("---------------------------------------------------------------------------------------------------------------------------------")
             if silent_mode == 1: print(generated_tx)
+            if silent_mode == 1: exit(0);
             break
