@@ -1,5 +1,9 @@
 #include <windows.h>
 #include <Shlobj.h>
+#include <Shobjidl.h>
+#include <Commdlg.h>
+#include <commctrl.h>
+
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -8,6 +12,10 @@
 
 #define DEFAULT_DIGEST_BITS 256
 #define FILE_BUFFER_BYTES 4096
+
+OPENFILENAME ofn ;
+char szFile[200] ;
+HFONT font=CreateFont(-17,0,0,0,FW_NORMAL,0,0,0,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,FF_DONTCARE,"Calibri");
 
 char *hexDigestForFile( const char *filename, const int digestBytes ){
     std::ifstream file;
@@ -87,46 +95,43 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			else if (lParam == (LPARAM)button2 && wParam == BN_CLICKED)
 			{
 				// The button was clicked, this is your proof.
-                    BROWSEINFO bi = { 0 };
-                    bi.lpszTitle = ("Pick a Directory");
-                    bi.ulFlags |= BIF_BROWSEINCLUDEFILES;
-                    LPITEMIDLIST pidl = SHBrowseForFolder ( &bi );
-                    TCHAR path[MAX_PATH];
-                    if ( pidl != 0 )
-                    {
-                        // get the name of the folder
-                        if ( SHGetPathFromIDList ( pidl, path ) )
-                        {
-                            printf ( ("Selected Folder: %s\n"), path );
-                        }
+				// open a file name
+                ZeroMemory( &ofn , sizeof( ofn));
+                ofn.lStructSize = sizeof ( ofn );
+                ofn.hwndOwner = NULL  ;
+                ofn.lpstrFile = szFile ;
+                ofn.lpstrFile[0] = '\0';
+                ofn.nMaxFile = sizeof( szFile );
+                ofn.lpstrFilter = "All\0*.*\0Text\0*.TXT\0";
+                ofn.nFilterIndex =1;
+                ofn.lpstrFileTitle = NULL ;
+                ofn.nMaxFileTitle = 0 ;
+                ofn.lpstrInitialDir=NULL ;
+                ofn.Flags = OFN_PATHMUSTEXIST|OFN_FILEMUSTEXIST ;
 
-                        // free memory used
-                        IMalloc * imalloc = 0;
-                        if ( SUCCEEDED( SHGetMalloc ( &imalloc )) )
-                        {
-                            imalloc->Free ( pidl );
-                            imalloc->Release ( );
-                        }
-                    }
-                    else {
-                            SendMessage(editHwnd2, WM_SETTEXT, NULL, (LPARAM)"");
-                            break;
-                    }
+                if ( GetOpenFileNameA( &ofn ) != 0 ) {
+                    // all ok
+                }
+                else {
+                    SendMessage(editHwnd2, WM_SETTEXT, NULL, (LPARAM)"");
+                    SendMessage(editHwnd3, WM_SETTEXT, NULL, (LPARAM)"");
+                    break;
+                }
 
-                    char *filename = path;
-                    int digestSize = 224;
+                char *filename = ofn.lpstrFile;
+                int digestSize = 224;
 
-                    char *hexDigest = hexDigestForFile( filename, digestSize/8 );
-                    if( hexDigest != 0 ){
-                        std::cout << hexDigest << "\t" << filename << std::endl;
-                    }
-                    else{
-                        std::cout << "Couldn't open file: " << filename << std::endl;
-                    }
+                char *hexDigest = hexDigestForFile( filename, digestSize/8 );
+                if( hexDigest != 0 ){
+                    std::cout << hexDigest << "\t" << filename << std::endl;
+                }
+                else{
+                    std::cout << "Couldn't open file: " << filename << std::endl;
+                }
 
-                    SendMessage(editHwnd3, WM_SETTEXT, NULL, (LPARAM)filename);
-                    SendMessage(editHwnd2, WM_SETTEXT, NULL, (LPARAM)hexDigest);
-                    delete( hexDigest );
+                SendMessage(editHwnd3, WM_SETTEXT, NULL, (LPARAM)filename);
+                SendMessage(editHwnd2, WM_SETTEXT, NULL, (LPARAM)hexDigest);
+                delete( hexDigest );
 			}
 
 		break;
@@ -186,10 +191,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// This function creates the button that is displayed on the window. It takes almost the same parameter types as the function
 	// that created the window. A thing to note here though, is BS_DEFPUSHBUTTON, and BUTTON as window class, which is an existing one.
 	button = CreateWindowA("BUTTON", "Hash", (WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON)
-		, 475, 10, 120, 20, hwnd, NULL, hInstance, NULL);
+		, 475, 8, 120, 30, hwnd, NULL, hInstance, NULL);
 
     button2 = CreateWindowA("BUTTON", "Browse", (WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON)
-		, 475, 169, 120, 20, hwnd, NULL, hInstance, NULL);
+		, 475, 164, 120, 30, hwnd, NULL, hInstance, NULL);
 
 	// This function creates the text field that is displayed on the window. It is almost the same as the function that created the
 	// button. Note the EDIT as window class, which is an existing window class defining a "text field".
@@ -202,6 +207,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// explainable in this tutorial. Refer to MSDN for specific information about a use of this function. In this case it is used to
 	// set a text value into the text field created on the window.
 	SendMessage(editHwnd, WM_SETTEXT, NULL, (LPARAM)"Insert Text to Hash here");
+	SendMessage(editHwnd,WM_SETFONT,(WPARAM)font,MAKELPARAM(true,0));
 
 	// This block checks the integrity of the created window and it's controls. If a control did not succeed creation, the window
 	// is not created succesfully, hence it should not be shown.
