@@ -1,0 +1,40 @@
+body {
+  font-family: Georgia, serif;
+  background-color: #ffffff;
+  color: #444444;
+  border: 0;
+  margin: 0;
+}
+
+#message {
+    width: 550px;
+    height: 150px;
+}
+
+#calculator {
+    width: 600px;
+	margin-top: 30px;
+    margin-left: 30px;
+    padding: 10px 20px 10px 20px;
+    background: white;
+	border: 1px black solid;
+}
+
+#file_calculator {
+    width: 600px;
+	margin-top: 30px;
+    margin-left: 30px;
+    padding: 10px 20px 30px 20px;
+    background: white;
+	border: 1px black solid;
+}
+
+#hash {
+    font-family: monospace;
+    word-wrap: break-word;
+}
+
+#margin_left {
+	margin-top: 30px;
+    margin-left: 30px;
+}
