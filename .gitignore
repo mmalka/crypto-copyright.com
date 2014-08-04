@@ -95,3 +95,5 @@ coverage.xml
 docs/_build/
 # PyBuilder
 target/
+send-op-return/RHash-1.3.2-win32/*
+us.stackdump
