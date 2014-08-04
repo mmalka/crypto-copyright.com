@@ -15,19 +15,21 @@
 * filesize
 * description
 * hash
-* events (as datetime ?? rly don't get this)
-    - created
-    - paid
-    - confirmed
-    - send
-    - blockchain
-    - cancelled (when unconfirmed too long)
+* lastevent (eventid)
 * receiving bitcoin address
 * transactionid
 * transactionid2
 
+### Table: events ###
+* eventid
+* hashid
+* timestamp
+* statusold
+* statusnew
+* details
+
 ### Table: payment ###
-* id
+* paymentid
 * hashid
 * transaction id of payment (see below)
 * btc from transaction id (btc address is taken from hash table)
