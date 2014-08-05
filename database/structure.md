@@ -3,6 +3,7 @@
 ## tables ##
 * user
 * hash
+* events
 * payment
 
 ### Table: user ###
@@ -24,8 +25,24 @@
 * eventid
 * hashid
 * timestamp
-* statusold
-* statusnew
+* old_event
+    - cryptoproof_submission_opened
+    - payment_pending
+    - payment_pending_confirmation
+    - payment_approved
+    - cryptoproof_sent
+    - cryptoproof_pending_confirmation
+    - cryptoproof_guaranteed
+    - cryptoproof_submission_cancelled
+* new_event
+    - cryptoproof_submission_opened
+    - payment_pending
+    - payment_pending_confirmation
+    - payment_approved
+    - cryptoproof_sent
+    - cryptoproof_pending_confirmation
+    - cryptoproof_guaranteed
+    - cryptoproof_submission_cancelled
 * details
 
 ### Table: payment ###
