@@ -1,4 +1,4 @@
--- VERSION: 0001
+-- VERSION: 0002
 
 -- phpMyAdmin SQL Dump
 -- version 4.2.7
@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS `crypto_hashs` (
   `payment_address` char(64) NOT NULL COMMENT 'The generated bitcoin address to pay to.',
   `transactionid` char(64) NOT NULL COMMENT 'The transaction that include the hash in the blockchain.',
   `transactionid2` varchar(64) NOT NULL COMMENT 'The transaction that double-authentificate the owner of the hash in the blockchain.'
+  `done` int(1) unsigned NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB  DEFAULT CHARSET=latin1 AUTO_INCREMENT=2 ;
 
 --
@@ -81,7 +82,7 @@ CREATE TABLE IF NOT EXISTS `crypto_payments` (
   `hash_id` bigint(20) unsigned NOT NULL,
   `transactionid` char(56) NOT NULL,
   `btc` decimal(11,8) NOT NULL,
-  `confirmed` int(1) NOT NULL
+  `confirmed` int(1) unsigned NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1 ;
 
 --
