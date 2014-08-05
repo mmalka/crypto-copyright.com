@@ -1,22 +1,4 @@
--- VERSION: 0003
-
--- phpMyAdmin SQL Dump
--- version 4.2.7
--- http://www.phpmyadmin.net
---
--- Host: localhost
--- Generation Time: Aug 05, 2014 at 05:43 PM
--- Server version: 5.5.37-0+wheezy1
--- PHP Version: 5.4.4-14+deb7u12
-
-SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-SET time_zone = "+00:00";
-
-
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8 */;
+-- VERSION: 0004
 
 --
 -- Database: `cryptocopyright`
@@ -60,7 +42,7 @@ CREATE TABLE IF NOT EXISTS `crypto_hashs` (
   `data_digest` char(56) NOT NULL,
   `payment_address` char(64) NOT NULL COMMENT 'The generated bitcoin address to pay to.',
   `transactionid` char(64) NOT NULL COMMENT 'The transaction that include the hash in the blockchain.',
-  `transactionid2` varchar(64) NOT NULL COMMENT 'The transaction that double-authentificate the owner of the hash in the blockchain.'
+  `transactionid2` varchar(64) NOT NULL COMMENT 'The transaction that double-authentificate the owner of the hash in the blockchain.',
   `done` int(1) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB  DEFAULT CHARSET=latin1 AUTO_INCREMENT=2 ;
 
@@ -68,8 +50,8 @@ CREATE TABLE IF NOT EXISTS `crypto_hashs` (
 -- Dumping data for table `crypto_hashs`
 --
 
-INSERT INTO `crypto_hashs` (`hash_id`, `owner_id`, `data_name`, `data_size`, `data_description`, `data_digest`, `payment_address`, `transactionid`, `transactionid2`) VALUES
-(1, NULL, 'timestamp-op-ret.py', 4653, 'timestamp-op-ret.py initially commited to github: 512e41c6da0d31a06a150a638e099a48f6bcade1', '4b4dada08cb7280f092e22ac04a7b509cdf05922ae23b7861f561511', '512e41c6da0d31a06a150a638e099a48f6bcade1', '7550cf37fb758cb58ec282d222783bb7fd23142387ec4c207d92c977daaaf5eb', '');
+INSERT INTO `crypto_hashs` (`hash_id`, `owner_id`, `data_name`, `data_size`, `data_description`, `data_digest`, `payment_address`, `transactionid`, `transactionid2`, `done`) VALUES
+(1, NULL, 'timestamp-op-ret.py', 4653, 'timestamp-op-ret.py initially commited to github: 512e41c6da0d31a06a150a638e099a48f6bcade1', '4b4dada08cb7280f092e22ac04a7b509cdf05922ae23b7861f561511', '512e41c6da0d31a06a150a638e099a48f6bcade1', '7550cf37fb758cb58ec282d222783bb7fd23142387ec4c207d92c977daaaf5eb', '', 1);
 
 -- --------------------------------------------------------
 
@@ -93,7 +75,7 @@ CREATE TABLE IF NOT EXISTS `crypto_payments` (
 -- Indexes for table `crypto_events`
 --
 ALTER TABLE `crypto_events`
- ADD PRIMARY KEY (`event_id`), ADD KEY `hash_id` (`hash_id`), ADD KEY `hash_id_2` (`hash_id`), ADD KEY `hash_id_3` (`hash_id`);
+ ADD PRIMARY KEY (`event_id`), ADD KEY `hash_id` (`hash_id`);
 
 --
 -- Indexes for table `crypto_hashs`
@@ -142,6 +124,3 @@ ADD CONSTRAINT `crypto_events_ibfk_1` FOREIGN KEY (`hash_id`) REFERENCES `crypto
 ALTER TABLE `crypto_payments`
 ADD CONSTRAINT `crypto_payments_ibfk_1` FOREIGN KEY (`hash_id`) REFERENCES `crypto_hashs` (`hash_id`);
 
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
