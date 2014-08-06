@@ -1,363 +1,483 @@
 #!/usr/bin/php
 <?php
+
 /* -- Definition des parametres DB et SOAP -- */
-define("LOCK_FILE", "/tmp/processStoreQueue.lock");
-define("DB_HOST", "127.0.0.1");
-define("DB_PORT", 3306);
-define("DB_USER", "Sundark");
-define("DB_PASS", "");
-define("DB_ALLOPASS", "luna_site");
-define("SOAP_HOST", "127.0.0.1");
-define("SOAP_PORT", 7878);
-define("SOAP_USER", "Sundark");
-define("SOAP_PASS", "");
-define("SOAP_URI", "urn:TC");
-define("TYPE_ORDER", 1);
-define("TYPE_COMMAND", 2);
+ define("LOCK_FILE", "/tmp/processQueue.lock");
+ define("DB_HOST", "127.0.0.1");
+ define("DB_PORT", 3306);
+ define("DB_USER", "cryptocopyright");
+ define("DB_PASS", "");
+ define("DB_NAME", "cryptocopyright");
+ define("DB_CHARSET", "utf8");
+
 //Nombre maximum de remises en file avant mise en erreur
-define("NB_FAILED", 3);
+ define("NB_FAILED", 3);
+ $service_price = 0.005;
+ $debuglevel = 'INFO';
 
-$fd = mysql_connect(DB_HOST.":".DB_PORT, DB_USER, DB_PASS, true);
-mysql_select_db(DB_ALLOPASS, $fd);
-mysql_query('SET NAMES UTF8', $fd);
-$gChildPid = 0;
+ $db = new PDO('mysql:host='.DB_HOST.':'.DB_PORT.';dbname='.DB_HOST.';charset='.
+     DB_CHARSET, DB_USER, DB_PASS);
+// $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
+ $db->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
+ $queueOfEventsPid = 0;
+ $bitcoinTransactionsCronPid = 0;
 
-$fp = fopen(LOCK_FILE, "w+");
+ $fp = fopen(LOCK_FILE, "w+");
 
-$soapCred = array("location" => "http://".SOAP_HOST.":".SOAP_PORT."/", "uri" => SOAP_URI, "style" => SOAP_RPC, "login" =>
-  SOAP_USER, "password" => SOAP_PASS);
-$soapClient = new SoapClient(null, $soapCred);
+ function lockFile($param)
+ {
+     global $fp;
 
-function host_alive()
-{
-  $sock = @fsockopen(SOAP_HOST, SOAP_PORT, $ERROR_NO, $ERROR_STR, (float)0.5);
-  if ($sock)
-  {
-    @fclose($sock);
-    $soap = true;
-  }
-  else  $soap = false;
+     switch ($param)
+     {
+             //unlock
+         case 0:
+             return flock($fp, LOCK_UN);
+             //lock
+         case 1:
+             return flock($fp, LOCK_EX | LOCK_NB);
+     }
+ }
 
-  $sock = @fsockopen(DB_HOST, DB_PORT, $ERROR_NO, $ERROR_STR, (float)0.5);
-  if ($sock)
-  {
-    @fclose($sock);
-    $sql = true;
-  }
-  else  $sql = false;
+ function processTransactionsFromWallet()
+ {
+     global $db;
+     // add transactions into payments
+     // update transaction when confirmed
+ }
 
-  return ($soap && $sql);
-}
+ function bitcoinTransactionsCron()
+ {
+     while (1)
+     {
+         processTransactionsFromWallet();
+         sleep(15);
+     }
+ }
 
-function lockFile($param)
-{
-  global $fp;
+ function processQueue()
+ {
+     global $db, $service_price;
+     // the following SQL query will return all non-completed hash_id and last state. DONE/CANCELLED will be ignored !
+     $queryevents = $db->prepare("SELECT e1.new_state, e1.hash_id FROM crypto_events e1 INNER JOIN (SELECT max(e.event_id) LastEvent, e.new_state, e.hash_id FROM crypto_events e WHERE e.hash_id IN (SELECT hash_id FROM crypto_hashs WHERE done = 0) GROUP BY e.hash_id) e2 ON e1.hash_id = e2.hash_id AND e1.event_id = e2.LastEvent order by e1.hash_id asc;");
+     // http://sqlfiddle.com/#!2/927392/11 - perfect results
 
-  switch ($param)
-  {
-      //unlock
-    case 0:
-      return flock($fp, LOCK_UN);
-      //lock
-    case 1:
-      return flock($fp, LOCK_EX | LOCK_NB);
-  }
-}
+     $queryevents->execute();
+     while ($result = $queryevents->fetch(PDO::FETCH_OBJ))
+     {
+         if ($result->new_state == null) continue;
+         $hash_id = $result->hash_id;
+         switch ($result->new_state)
+         {
+             case "payment_pending":
+                 $payment_array = getPaymentsForHash($result->hash_id);
+                 if ($payment_array[0] + $payment_array[1] > 0)
+                 {
+                     createEventByHashId($hash_id, payment_pending, payment_pending_confirmation, '');
+                     break;
+                 }
+                 $getHashSubmissionTimestamp = $db->prepare("SELECT `timestamp` FROM `crypto_hashs` WHERE `hash_id` = ':hash_id';");
+                 $getHashSubmissionTimestamp->bindValue(':hash_id', $hash_id, PDO::PARAM_INT);
+                 $getHashSubmissionTimestamp->execute();
+                 $result = $getHashSubmissionTimestamp->fetch(PDO::FETCH_OBJ);
+                 if ($result->timestamp > time() - 21600)
+                 {
+                     createEventByHashId($hash_id, payment_pending, cryptoproof_submission_cancelled,
+                         '$result->timestamp > time()-21600');
+                     if (!setDoneToHashId($hash_id, -1)) logging("!setDoneToHashId($hash_id, -1)",
+                             "ERROR");
+                 }
+                 break;
+             case "payment_pending_confirmation":
+                 $payment_array = getPaymentsForHash($result->hash_id);
+                 if ($payment_array[0] >= $service_price)
+                 {
+                     createEventByHashId($hash_id, payment_pending_confirmation, payment_approved, '');
+                     break;
+                 }
+                 if ($payment_array[0] + $payment_array[1] < $service_price)
+                 {
+                     // We didn't received enough payments (confirmed/unconfirmed).
+                     // We just want to check if the last payment is not too old.
+                     if ($payment_array[2] > time() - 604800)
+                     {
+                         createEventByHashId($hash_id, payment_pending_confirmation,
+                             cryptoproof_submission_cancelled, '$payment_array[2] > time()-604800');
+                         if (!setDoneToHashId($hash_id, -1)) logging("!setDoneToHashId($hash_id, -1)",
+                                 "ERROR");
+                     }
+                 }
+                 break;
+             case "payment_approved":
+                 $getHashs = $db->prepare("SELECT `data_digest`,`data_digest2`,`transactionid`,`transactionid2` FROM `crypto_hashs` WHERE `hash_id` = ':hash_id';");
+                 $getHashs->bindValue(':hash_id', $hash_id, PDO::PARAM_INT);
+                 $getHashs->execute();
+                 $result = $getHashs->fetch(PDO::FETCH_OBJ);
+                 if (!ctype_xdigit($result->data_digest) || !strlen($result->data_digest != 56))
+                 {
+                     logging("The hash_id {$hash_id} contains no valid SHA-3/224 data_digest",
+                         'ERROR');
+                     break;
+                 }
+                 if (ctype_xdigit($result->data_digest2) && strlen($result->data_digest2 == 56))
+                 {
+                     $tx2 = $result->transactionid2;
+                     if ($tx2 == "") $tx2 = createOpReturnByHash($result->data_digest2);
+                     if ((ctype_xdigit($tx2) && strlen($tx2 == 64)) && (!ctype_xdigit($result->
+                         transactionid2) || strlen($result->transactionid2 != 64)))
+                     {
+                         // update db for tx2
+                         break; // submit second hash before the first one for improved efficacity (a hash naming the owner existed before the actual hash been submitted)
+                     }
+                 }
+                 $tx = $result->transactionid;
+                 if ($tx == "") $tx = createOpReturnByHash($result->data_digest);
+                 if ((ctype_xdigit($tx) && strlen($tx == 64)) && (!ctype_xdigit($result->
+                     transactionid) || strlen($result->transactionid != 64)))
+                 {
+                     // update db for tx
+                 }
+                 if (ctype_xdigit($tx) && strlen($tx == 64))
+                 {
+                     createEventByHashId($hash_id, payment_approved, cryptoproof_sent, '');
+                     if (!setDoneToHashId($hash_id, 1)) logging("!setDoneToHashId($hash_id, 1)",
+                             "ERROR");
+                 }
+                 createEventByHashId($hash_id, payment_approved, payment_approved,
+                     'Error when creating transaction id');
+                 break;
+             case "cryptoproof_sent":
+                 $getOpReturnTxs = $db->prepare("SELECT `data_digest`,`data_digest2`,`transactionid`,`transactionid2` FROM `crypto_hashs` WHERE `hash_id` = ':hash_id';");
+                 $getOpReturnTxs->bindValue(':hash_id', $hash_id, PDO::PARAM_INT);
+                 $getOpReturnTxs->execute();
+                 $result = $getOpReturnTxs->fetch(PDO::FETCH_OBJ);
 
-function doCommand($command)
-{
-  global $soapClient;
+                 if (!ctype_xdigit($result->data_digest) || !strlen($result->data_digest != 56) ||
+                     !ctype_xdigit($result->transactionid) || strlen($result->transactionid != 64))
+                 {
+                     logging("The hash_id {$hash_id} don't contains a valid data_digest/transactionid",
+                         'ERROR');
+                     break;
+                 }
+                 if (ctype_xdigit($result->data_digest2) && strlen($result->data_digest2 == 56) &&
+                     ctype_xdigit($result->transactionid2) && strlen($result->transactionid2 == 64))
+                 {
+                     if (getTransactionConfirmations($hash_id, $result->transactionid) > 0 &&
+                         getTransactionConfirmations($hash_id, $result->transactionid2) > 0)
+                     {
+                         createEventByHashId($hash_id, cryptoroof_sent, cryptoproof_guarranted, '');
+                         if (!setDoneToHashId($hash_id, 1)) logging("!setDoneToHashId($hash_id, 1)",
+                                 "ERROR");
+                     }
+                     break;
+                 }
+                 if (getTransactionConfirmations($hash_id, $result->transactionid) > 0)
+                 {
+                     createEventByHashId($hash_id, cryptoroof_sent, cryptoproof_guarranted, '');
+                     if (!setDoneToHashId($hash_id, 1)) logging("!setDoneToHashId($hash_id, 1)",
+                             "ERROR");
+                 }
+                 break;
+         }
+         sleep(1);
+     }
+ }
 
-  if ($command)
-  {
-    try
-    {
-      $result = $soapClient->executeCommand(new SoapParam($command, "command"));
-      return array("ok" => true, "result" => $result);
-    }
-    catch (exception $e)
-    {
-      return array("ok" => false, "result" => $e->getMessage());
-    }
-  }
-  return array("ok" => false, "result" => "Commande vide !");
-}
+ function setDoneToHashId($hash_id, $done)
+ {
+     global $db, $service_price;
+     $update = $db->prepare("UPDATE `crypto_hashs` SET `done` = ':done' WHERE `hash_id`=':hash_id';");
+     $update->bindValue(':hash_id', $hash_id, PDO::PARAM_INT);
+     $update->bindValue(':done', $done, PDO::PARAM_INT);
+     $update->execute();
+     $affected_rows = $eventBuilder->rowCount();
+     if ($affected_rows === 0) return false;
+     return true;
+ }
 
-function processQueue($stat = false)
-{
-  global $fd;
-  $soap_tab = array();
-  $sql = mysql_query("SELECT * FROM soap_queue WHERE failed<'".NB_FAILED."' ORDER BY id ASC", $fd);
-  if (mysql_num_rows($sql) === 0) return false;
-  while ($soap = mysql_fetch_object($sql))
-  {
-    $soap_tab[] = $soap;
-  }
-  $pSoap_tab = &$soap_tab;
-  foreach ($pSoap_tab as $soap)
-  {
-    print "[".$soap->id."] Traitement de la commande ".$soap->command."... ";
-    $result = doCommand($soap->command);
-    if (preg_match("/Cette sous-commande n'existe pas./", $result['result']) or preg_match("/Cette commande n'existe pas./", $result['result']) or
-      preg_match("/There is no such command/", $result['result']) or preg_match("/There is no such subcommand/", $result['result']))
-    {
-      $result["ok"] = false;
-    }
-    if ($result["ok"])
-    {
-      print "[OK]\n";
-      if ($soap->type == TYPE_ORDER) //mysql_query("UPDATE command SET statut='1', mj='1' WHERE guid='".$soap->guid."'", $fd);
-           print "[".$soap->id."] Type order\n";
-      print "[".$soap->id."] Suppression de la file ";
-      mysql_query("DELETE FROM soap_queue WHERE id='".$soap->id."'", $fd);
-      print "[OK]\n";
-    }
-    else
-    {
-      print "[FAILED]\n";
-      $soap->failed++;
-      $soap->error = $result["result"];
-      print "[".$soap->id."] ".$soap->failed." erreurs sur cette commande...\n";
-      $pSoap_tab[] = $soap;
-      if ($soap->failed >= NB_FAILED)
-      {
-        print "[".$soap->id."] Commande en erreur... ";
-        mysql_query("UPDATE soap_queue SET failed='".$soap->failed."', error='".mysql_real_escape_string($soap->error).
-          "' WHERE id=".$soap->id."", $fd);
-        print "[OK]\n";
-        return $stat;
-      }
-      else
-      {
-        print "[".$soap->id."] Remise en file d'attente... ";
-        mysql_query("UPDATE soap_queue SET failed='".$soap->failed."' WHERE id=".$soap->id."", $fd);
-        print "[OK]\n";
-      }
-    }
-    sleep(1);
-  }
-  return $stat;
-}
+ function getTransactionConfirmations($hash_id, $txid)
+ {
+     $exec = exec("gettxconfirmations.py {$txid}");
+     if (is_numeric($exec) && $exec > 0)
+     {
+         // createEventByHashId($hash_id, payment_approved, cryptoproof_sent, '');
+         return $exec;
+     }
+     return 0;
+ }
 
-function showQueue()
-{
-  global $fd;
-  $soap_tab = array();
-  $sql = mysql_query("SELECT * FROM soap_queue ORDER BY id ASC", $fd) or print(mysql_error());
-  if (mysql_num_rows($sql) === 0) return false;
-  while ($soap = mysql_fetch_object($sql))
-  {
-    $soap_tab[] = $soap;
-  }
-  $pSoap_tab = &$soap_tab;
-  foreach ($pSoap_tab as $soap)
-  {
-    if ($soap->failed == NB_FAILED)
-      $sayit = '(en ERREUR) ';
-    else
-      $sayit = '';
-    print "[".$soap->id."] Commande dans la queue $sayit: ".$soap->command."...\n";
-  }
-  return true;
-}
+ function createOpReturnByHash($hash)
+ {
+     $command = escapeshellcmd('python3 /home/crypto-copyright/corporate/www/timestamp-op-ret.py -s '.
+         $hash);
+     // secondary hash later
+     $output = array();
+     $txid = '';
+     exec($command, $output);
+     foreach ($output as $line)
+     {
 
-function deleteQueue($task_id)
-{
-  global $fd;
-  $soap_tab = array();
-  $sql = mysql_query("SELECT * FROM soap_queue WHERE id=$task_id ORDER BY id ASC", $fd);
-  if (mysql_num_rows($sql) !== 0)
-  {
-    mysql_query("DELETE FROM soap_queue WHERE id=$task_id;", $fd);
-    print "Suppression reussi... \n";
-  }
-  else
-  {
-    print "Echec lors de la suppression...\n";
-  }
-  return true;
-}
+     }
+     if (ctype_xdigit($txid) && strlen($txid == 64))
+     {
+         // DoAction: Insert the tx-id returned by timestamp-op-ret.py to crypto_hashs WHERE hashid.
+         createEventByHashId($hash_id, payment_approved, cryptoproof_sent, '');
+         return $txid;
+     }
+ }
 
-function addQueue($task_add)
-{
-  global $fd;
-  $soap_tab = array();
-  $task_add = mysql_real_escape_string($task_add, $fd);
-  if (mysql_query("INSERT INTO `soap_queue` (`id`, `guid`, `command`, `type`, `failed`, `error`) VALUES (null, '', '{$task_add}', '1', '0', 'no error');", $fd))
-  {
-    print "Ajout en file reussi... \n";
-  }
-  else
-  {
-    print "Echec lors de l'ajout en file...\n";
-  }
-  return true;
-}
+ function createEventByHashId($hash_id, $old_state, $new_state, $details = '')
+ {
+     global $db;
+     /*
+     Available events:
+     'null',
+     'cryptoproof_submission_opened',
+     'payment_pending',
+     'cryptoproof_submission_cancelled',
+     'payment_pending_confirmation',
+     'payment_approved',
+     'cryptoproof_sent',
+     'cryptoproof_pending_confirmation',
+     'cryptoproof_guaranteed'
+     */
+     $eventBuilder = $db->prepare("INSERT INTO `cryptocopyright`.`crypto_events` (`event_id`, `hash_id`, `timestamp`, `old_state`, `new_state`, `details`) VALUES (NULL, :hash_id, :timestamp, ':old_state', ':new_state', ':details')");
+     $eventBuilder->bindValue(':hash_id', $hash_id, PDO::PARAM_INT);
+     $eventBuilder->bindValue(':timestamp', time(), PDO::PARAM_INT);
+     $eventBuilder->bindValue(':old_state', $old_state, PDO::PARAM_STR);
+     $eventBuilder->bindValue(':new_state', $new_state, PDO::PARAM_STR);
+     $eventBuilder->bindValue(':details', $details, PDO::PARAM_STR);
+     $eventBuilder->execute();
+     $affected_rows = $eventBuilder->rowCount();
+     if ($affected_rows === 0)
+     {
+         logging("createEventByHashId({$hash_id}, {$old_state}, {$new_state}, {$details}', 'ERROR");
+         logging("createEventByHashId({$hash_id}, {$old_state}, {$new_state}, {$details}', 'DEBUG");
+     }
+ }
 
-function resubmitQueue($task_id)
-{
-  global $fd;
-  $sql = mysql_query("SELECT * FROM soap_queue WHERE id=$task_id ORDER BY id ASC", $fd);
-  if (mysql_num_rows($sql) !== 0)
-  {
-    mysql_query("UPDATE soap_queue SET failed='0' WHERE id=$task_id;", $fd);
-    print "Remise en file reussi... \n";
-  }
-  else
-  {
-    print "Echec lors de la remise en file...\n";
-  }
-  return true;
-}
+ function getPaymentsForHash($hash_id)
+ {
+     global $db, $service_price;
+     $confirmed_balance = 0;
+     $unconfirmed_balance = 0;
+     $last_timestamp = 0;
+     $paymentsquery = $db->prepare("SELECT `btc`, `confirmed`, `timestamp` FROM `crypto_payments` WHERE `hash_id`=':hash_id' ORDER BY `timestamp`;");
+     $paymentsquery->bindValue(':hash_id', $hash_id, PDO::PARAM_INT);
+     $paymentsquery->execute();
+     if ($paymentsquery->rowCount() === 0) return array($confirmed_balance, $unconfirmed_balance);
 
-function child()
-{
-  while (1)
-  {
-    if (host_alive())
-    {
-      print "queue flush\n";
-      print "Traitement de la file d'attente...\n";
-      if (processQueue(true)) print "SoapQueue > ";
-    }
-    else
-    {
-      print "Serveur de connexion down\n";
-      sleep(5);
-    }
-    sleep(10);
-  }
+     while ($result = $paymentsquery->fetch(PDO::OBJ))
+     {
+         if ($result->confirmed == 1)
+         {
+             $confirmed_balance += $result->btc;
+             if ($confirmed_balance >= $service_price) break;
+             continue;
+         }
+         $unconfirmed_balance += $result->btc;
+     }
+     $last_timestamp = $result->timestamp;
+     return array(
+         $confirmed_balance,
+         $unconfirmed_balance,
+         $last_timestamp);
+ }
 
-}
+ function logging($msg, $level = 'NORMAL')
+ {
+     global $debuglevel;
+     echo "{$level}: {$msg}\n";
+     // ToDo: Write on file.
+     // ToDo: Handle debuglevel bitmask.
+ }
 
-function parse_command($command)
-{
-  global $gChildPid;
-  global $fp;
-  global $fd;
+ function showQueue($showCancelled = false)
+ {
+     global $db;
+     // show all hashs status (not completed/cancelled)
+ }
 
-  if (preg_match("/exit/", $command))
-  {
-    mysql_close($fd);
-    posix_kill($gChildPid, SIGTERM);
-    pcntl_waitpid(-1, $status);
-    print "Deverrouillage du verrou... ";
-    if (!lockFile(0))
-    {
-      fclose($fp);
-      die("Impossible de deverrouiller ".LOCK_FILE." !\n");
-    }
-    print "[OK]\n";
-    exit;
-    break;
-  } elseif (preg_match("/queue\n/", $command))
-  {
-    print "Les sous commandes pour la commande queue sont :\n";
-    print "  queue add {\"commande\"} (experimental)\n";
-    print "  queue delete {task_id}\n";
-    print "  queue flush\n";
-    print "  queue list\n";
-    print "  queue resubmit {task_id}\n";
-    return array('ok' => true, 'msg' => "");
-  } elseif (preg_match("/queue list\n/", $command))
-  {
-    print "Affichage de la file d'attente...\n";
-    showQueue();
-    return array('ok' => true, 'msg' => "");
-  } elseif (preg_match("/queue flush\n/", $command))
-  {
-    print "Traitement de la file d'attente...\n";
-    if (processQueue(false)) print "\nSoapQueue > ";
-    return array('ok' => true, 'msg' => "");
-  } elseif (preg_match("/queue resubmit/", $command))
-  {
-    preg_match_all('#[0-9]+#', $command, $extract);
-    $task_id = intval($extract[0][0]);
-    if ($task_id !== 0)
-    {
-      print "Tentative de remise en file de la commande en erreur num: $task_id ...\n";
-    }
-    else
-    {
-      print "Veuillez entrer une valeur correct pour task_id ...\n";
-    }
-    resubmitQueue($task_id);
-    return array('ok' => true, 'msg' => "");
-  } elseif (preg_match("/queue delete/", $command))
-  {
-    preg_match_all('#[0-9]+#', $command, $extract);
-    $task_id = intval($extract[0][0]);
-    if ($task_id !== 0)
-    {
-      print "Suppression de la commande en file num: $task_id ...\n";
-      deleteQueue($task_id);
-    }
-    else
-    {
-      print "Veuillez entrer une valeur correct pour task_id ...\n";
-    }
-    return array('ok' => true, 'msg' => "");
-  } elseif (preg_match("/queue add/", $command))
-  {
-    $command = str_replace('queue add ', '', $command);
-    $new_task = trim($command);
-    if (!empty($new_task))
-    {
-      print "Ajout de la commande : $new_task ...\n";
-      addQueue($new_task);
-    }
-    else
-    {
-      print "Veuillez entrer une valeur correct pour new_task ...\n";
-    }
-    return array('ok' => true, 'msg' => "");
-  }
-  else
-  {
-    return array('ok' => false, 'msg' => "Commande inexistante.");
-  }
-}
+ function deleteQueue($task_id)
+ {
+     global $db;
+     // manually cancel a hash
+ }
 
-function cli()
-{
-  if (!defined("STDIN"))
-  {
-    define("STDIN", fopen('php://stdin', 'r'));
-  }
+ function addQueue($task_add)
+ {
+     global $db;
+     // manually add a hash
+ }
 
-  print "SoapQueue > ";
-  while ($line = fread(STDIN, 1024))
-  {
-    if (preg_match("/(.+?)+/", $line))
-    {
-      $result = parse_command($line);
-      if ($result['ok']) print $result['msg'];
-      else  print "ERROR: ".$result['msg']."\n";
-    }
-    print "SoapQueue > ";
-  }
-}
+ function resubmitQueue($task_id)
+ {
+     global $db;
+     // manually set a cancelled hash back to its previous status
+ }
 
-function main()
-{
-  global $gChildPid;
+ function queueOfEvents()
+ {
+     while (1)
+     {
+         if (processQueue()) print "CryptoCopyright > ";
+         sleep(5);
+     }
 
-  $gChildPid = pcntl_fork();
-  if ($gChildPid == -1)
-  {
-    print "Impossible de lancer le processus fils.";
-    exit;
-  } elseif ($gChildPid) cli();
-  else  child();
-}
+ }
 
-print "Creation et verrouillage du verrou... ";
-if (!lockFile(1))
-{
-  fclose($fp);
-  die("Impossible de verrouiller ".LOCK_FILE." !\n");
-}
-print "[OK]\n";
+ function parse_command($command)
+ {
+     global $queueOfEventsPid;
+     global $bitcoinTransactionsCronPid;
+     global $fp;
+     global $db;
 
-main();
+     if (preg_match("/exit/", $command))
+     {
+         mysql_close($db);
+         posix_kill($queueOfEventsPid, SIGTERM);
+         posix_kill($bitcoinTransactionsCronPid, SIGTERM);
+         pcntl_waitpid(-1, $status);
+         print "Deverrouillage du verrou... ";
+         if (!lockFile(0))
+         {
+             fclose($fp);
+             die("Impossible de deverrouiller ".LOCK_FILE." !\n");
+         }
+         print "[OK]\n";
+         exit;
+         break;
+     }
+     elseif(preg_match("/queue\n/", $command))
+     {
+         print "Les sous commandes pour la commande queue sont :\n";
+         print "  queue add {\"commande\"} (experimental)\n";
+         print "  queue delete {task_id}\n";
+         print "  queue flush\n";
+         print "  queue list\n";
+         print "  queue resubmit {task_id}\n";
+         return array('ok' => true, 'msg' => "");
+     }
+     elseif(preg_match("/queue list\n/", $command))
+     {
+         print "Affichage de la file d'attente...\n";
+         showQueue();
+         return array('ok' => true, 'msg' => "");
+     }
+     elseif(preg_match("/queue flush\n/", $command))
+     {
+         print "Traitement de la file d'attente...\n";
+         if (processQueue(false)) print "\nSoapQueue > ";
+         return array('ok' => true, 'msg' => "");
+     }
+     elseif(preg_match("/queue resubmit/", $command))
+     {
+         preg_match_all('#[0-9]+#', $command, $extract);
+         $task_id = intval($extract[0][0]);
+         if ($task_id !== 0)
+         {
+             print "Tentative de remise en file de la commande en erreur num: $task_id ...\n";
+         }
+         else
+         {
+             print "Veuillez entrer une valeur correct pour task_id ...\n";
+         }
+         resubmitQueue($task_id);
+         return array('ok' => true, 'msg' => "");
+     }
+     elseif(preg_match("/queue delete/", $command))
+     {
+         preg_match_all('#[0-9]+#', $command, $extract);
+         $task_id = intval($extract[0][0]);
+         if ($task_id !== 0)
+         {
+             print "Suppression de la commande en file num: $task_id ...\n";
+             deleteQueue($task_id);
+         }
+         else
+         {
+             print "Veuillez entrer une valeur correct pour task_id ...\n";
+         }
+         return array('ok' => true, 'msg' => "");
+     }
+     elseif(preg_match("/queue add/", $command))
+     {
+         $command = str_replace('queue add ', '', $command);
+         $new_task = trim($command);
+         if (!empty($new_task))
+         {
+             print "Ajout de la commande : $new_task ...\n";
+             addQueue($new_task);
+         }
+         else
+         {
+             print "Veuillez entrer une valeur correct pour new_task ...\n";
+         }
+         return array('ok' => true, 'msg' => "");
+     }
+     else
+     {
+         return array('ok' => false, 'msg' => "Commande inexistante.");
+     }
+ }
+
+ function console_handling()
+ {
+     global $bitcoinTransactionsCronPid;
+
+     $bitcoinTransactionsCronPid = pcntl_fork();
+     if ($bitcoinTransactionsCronPid == -1)
+     {
+         print "unable to fork console_handling() to bitcoinTransactionsCron().";
+         exit;
+     }
+     else
+         if ($bitcoinTransactionsCronPid)
+         {
+             if (!defined("STDIN"))
+             {
+                 define("STDIN", fopen('php://stdin', 'r'));
+             }
+
+             print "SoapQueue > ";
+             while ($line = fread(STDIN, 1024))
+             {
+                 if (preg_match("/(.+?)+/", $line))
+                 {
+                     $result = parse_command($line);
+                     if ($result['ok']) print $result['msg'];
+                     else  print "ERROR: ".$result['msg']."\n";
+                 }
+                 print "SoapQueue > ";
+             }
+         }
+         else  bitcoinTransactionsCron();
+ }
+
+ function main()
+ {
+     global $queueOfEventsPid;
+
+     $queueOfEventsPid = pcntl_fork();
+     if ($queueOfEventsPid == -1)
+     {
+         print "unable to fork main() to queueOfEvents().";
+         exit;
+     }
+     else
+         if ($queueOfEventsPid) console_handling();
+         else  queueOfEvents();
+ }
+
+ print "Creation et verrouillage du verrou... ";
+ if (!lockFile(1))
+ {
+     fclose($fp);
+     die("Impossible de verrouiller ".LOCK_FILE." !\n");
+ }
+ print "[OK]\n";
+
+ main();
+
 ?>
