@@ -1,4 +1,4 @@
--- VERSION: 0004
+-- VERSION: 0005
 
 --
 -- Database: `cryptocopyright`
@@ -36,10 +36,12 @@ INSERT INTO `crypto_events` (`event_id`, `hash_id`, `timestamp`, `old_state`, `n
 CREATE TABLE IF NOT EXISTS `crypto_hashs` (
 `hash_id` bigint(20) unsigned NOT NULL,
   `owner_id` bigint(20) unsigned DEFAULT NULL,
+  `timestamp` int(11) NOT NULL,
   `data_name` varchar(255) NOT NULL,
   `data_size` bigint(16) unsigned NOT NULL COMMENT 'The maximum data size is 9 peta bytes.',
   `data_description` text,
   `data_digest` char(56) NOT NULL,
+  `data_digest2` char(56) NOT NULL,
   `payment_address` char(64) NOT NULL COMMENT 'The generated bitcoin address to pay to.',
   `transactionid` char(64) NOT NULL COMMENT 'The transaction that include the hash in the blockchain.',
   `transactionid2` varchar(64) NOT NULL COMMENT 'The transaction that double-authentificate the owner of the hash in the blockchain.',
@@ -50,8 +52,8 @@ CREATE TABLE IF NOT EXISTS `crypto_hashs` (
 -- Dumping data for table `crypto_hashs`
 --
 
-INSERT INTO `crypto_hashs` (`hash_id`, `owner_id`, `data_name`, `data_size`, `data_description`, `data_digest`, `payment_address`, `transactionid`, `transactionid2`, `done`) VALUES
-(1, NULL, 'timestamp-op-ret.py', 4653, 'timestamp-op-ret.py initially commited to github: 512e41c6da0d31a06a150a638e099a48f6bcade1', '4b4dada08cb7280f092e22ac04a7b509cdf05922ae23b7861f561511', '512e41c6da0d31a06a150a638e099a48f6bcade1', '7550cf37fb758cb58ec282d222783bb7fd23142387ec4c207d92c977daaaf5eb', '', 1);
+INSERT INTO `crypto_hashs` (`hash_id`, `owner_id`, `timestamp`, `data_name`, `data_size`, `data_description`, `data_digest`, `data_digest2`, `payment_address`, `transactionid`, `transactionid2`, `done`) VALUES
+(1, NULL, 1407008700, 'timestamp-op-ret.py', 4653, 'timestamp-op-ret.py initially commited to github: 512e41c6da0d31a06a150a638e099a48f6bcade1', '4b4dada08cb7280f092e22ac04a7b509cdf05922ae23b7861f561511', '', '1MDo23U4X1VRxMRC626xNW2Rciuxx4cpXB', '7550cf37fb758cb58ec282d222783bb7fd23142387ec4c207d92c977daaaf5eb', '', 1);
 
 -- --------------------------------------------------------
 
