@@ -1,6 +1,10 @@
 #!/usr/bin/php
 <?php
 
+ require_once 'json-rpc/jsonRPCClient.php';
+ $new_address = "";
+ $bitcoin = new jsonRPCClient('http://user:password@127.0.0.1:8332/');
+ 
 /* -- Definition des parametres DB et SOAP -- */
  define("LOCK_FILE", "/tmp/processQueue.lock");
  define("DB_HOST", "localhost");
@@ -56,14 +60,15 @@
  }
 function generateBitcoinAddress($hash_id)
 {
-    $address = "1MDo23U4X1VRxMRC626xNW2Rciuxx4cpXB";
+    // $address = "1MDo23U4X1VRxMRC626xNW2Rciuxx4cpXB";
+    $generatedBitcoinAddress = $bitcoin->getnewaddress();
     if (!ctype_xdigit($generatedBitcoinAddress) || strlen($generatedBitcoinAddress) != 64)
         {
             logging("Attempt to generate a BTC address for hash_id: {$hash_id} has failed.");
             return false;
         }
-    logging("BTC address: {$address} have been generated for hash_id: {$hash_id}."); 
-    return $address;
+    logging("BTC address: {$generatedBitcoinAddress} have been generated for hash_id: {$hash_id}."); 
+    return $generatedBitcoinAddress;
 }
  function processQueue()
  {
