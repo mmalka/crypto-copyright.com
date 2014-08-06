@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS `crypto_payments` (
 `payment_id` bigint(20) unsigned NOT NULL,
   `hash_id` bigint(20) unsigned NOT NULL,
   `transactionid` char(56) NOT NULL,
+  `timestamp` INT(11) NOT NULL,
   `btc` decimal(11,8) NOT NULL,
   `confirmed` int(1) unsigned NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1 ;
