@@ -66,7 +66,6 @@ for digest in digests:
     if silent_mode == 0: print("---------------------------------------------------------------------------------------------------------------------------------")
     i += 1
     txouts = []
-
     unspent = sorted(proxy.listunspent(0), key=lambda x: hash(x['amount']))
 
     txins = [CTxIn(unspent[-1]['outpoint'])]
